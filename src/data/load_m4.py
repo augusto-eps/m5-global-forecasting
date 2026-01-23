@@ -103,7 +103,10 @@ def build_processed_daily_table(
     random_state: int = 42
 ) -> pd.DataFrame:
     
-    """Build long-format Daily M4 table with metadata and sampling."""
+    """
+    Build long-format Daily M4 table with metadata and sampling. 
+    Drops rows where there is no value for the time series level.
+    """
 
     info = load_m4_info()
     info_daily = info[info["SP"] == "Daily"]
@@ -122,6 +125,8 @@ def build_processed_daily_table(
         on="M4id",
         how="left"
     )
+
+    long_df = long_df.dropna(subset=["value"])
 
     return long_df
 
