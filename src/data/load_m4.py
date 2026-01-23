@@ -4,11 +4,14 @@ import logging
 from pathlib import Path
 import pandas as pd
 
+from preprocessing import drop_na, get_valid_series_ids
+
 RAW_DATA_DIR = Path("data/raw")
 PROCESSED_DATA_DIR = Path("data/processed")
 
-N_SERIES_PER_CATEGORY = 100
+N_SERIES_PER_CATEGORY = 200
 RANDOM_STATE = 42
+REQUIRED_DAYS = 731
 
 logging.basicConfig(
     level=logging.INFO,
@@ -48,7 +51,8 @@ def sample_m4_ids_by_category(
             lambda x: x.sample(
                 n=min(len(x), n_per_category),
                 random_state=random_state
-            )
+            ),
+            include_groups=False
         )
     )
 
@@ -106,6 +110,7 @@ def build_processed_daily_table(
     """
     Build long-format Daily M4 table with metadata and sampling. 
     Drops rows where there is no value for the time series level.
+    Keeps only series with at least REQUIRED_DAYS of data.
     """
 
     info = load_m4_info()
@@ -117,16 +122,24 @@ def build_processed_daily_table(
         random_state=random_state
     )
 
+    # Load wide format and melt to long
     daily_wide = load_m4_daily_wide(sampled_ids=sampled_ids)
     long_df = melt_daily_to_long(daily_wide)
 
+    # Merge metadata and drop missing values
     long_df = long_df.merge(
         info_daily[["M4id", "category", "SP"]],
         on="M4id",
         how="left"
     )
+    long_df = drop_na(long_df)
 
-    long_df = long_df.dropna(subset=["value"])
+    # Filter to first REQUIRED_DAYS and healthy series
+    healthy_series = get_valid_series_ids(long_df, required_days=REQUIRED_DAYS)
+    long_df = long_df[long_df.time_idx < REQUIRED_DAYS].copy()
+    long_df = long_df[long_df.M4id.isin(healthy_series)].copy()
+
+    logger.info(f"Healthy series filter applied, {healthy_series.shape[0]} sampled series")
 
     return long_df
 
