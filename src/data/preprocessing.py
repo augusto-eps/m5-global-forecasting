@@ -2,6 +2,7 @@
 
 import pandas as pd
 from typing import Tuple, Union
+import plotly.express as px
 
 def drop_na(df: pd.DataFrame, value_col: str = "value") -> pd.DataFrame:
     """Drop rows with NA in the value column."""
@@ -87,4 +88,44 @@ def temporal_train_test_split(
     test_df = pd.concat(test_parts)
 
     return train_df, test_df
+
+def plot_sampled_series(
+    df: pd.DataFrame,
+    category: str,
+    n_series: int = 10,
+    random_state: int = 42,
+):
+    # Filter category
+    df_cat = df[df["category"] == category]
+
+    # Sample series IDs
+    sampled_ids = (
+        df_cat["M4id"]
+        .drop_duplicates()
+        .sample(n=min(n_series, df_cat["M4id"].nunique()),
+                random_state=random_state)
+    )
+
+    df_plot = df_cat[df_cat["M4id"].isin(sampled_ids)]
+
+    fig = px.line(
+        df_plot,
+        x="time_idx",
+        y="value",
+        color="M4id",
+        title=f"Sampled time series from category: {category}",
+        labels={
+            "time_idx": "Time",
+            "value": "Value",
+            "M4id": "Series ID",
+        },
+    )
+
+    fig.update_layout(
+        template="plotly_white",
+        legend_title_text="Series",
+        hovermode="x unified",
+    )
+
+    fig.show()
 
