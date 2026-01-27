@@ -4,10 +4,7 @@ import logging
 from pathlib import Path
 import pandas as pd
 
-from .preprocessing import drop_na, get_valid_series_ids
-
-RAW_DATA_DIR = Path("data/raw")
-PROCESSED_DATA_DIR = Path("data/processed")
+from src.data.preprocessing import drop_na, get_valid_series_ids
 
 N_SERIES_PER_CATEGORY = 200
 RANDOM_STATE = 42
@@ -20,11 +17,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def load_m4_info() -> pd.DataFrame:
+def load_m4_info(raw_data_dir: Path = Path("data/raw")) -> pd.DataFrame:
 
     """Load M4 metadata."""
     
-    path = RAW_DATA_DIR / "M4-info.csv"
+    path = raw_data_dir / "m4-info.csv"
     logger.info(f"Reading metadata from {path}")
 
     info = pd.read_csv(path)
@@ -62,11 +59,14 @@ def sample_m4_ids_by_category(
     return sampled_ids
 
 
-def load_m4_daily_wide(sampled_ids: list[str] | None = None) -> pd.DataFrame:
+def load_m4_daily_wide(
+        raw_data_dir: Path = Path("data/raw"),
+        sampled_ids: list[str] | None = None
+        ) -> pd.DataFrame:
 
     """Load M4 Daily training data in wide format."""
 
-    path = RAW_DATA_DIR / "Daily-train.csv"
+    path = raw_data_dir / "Daily-train.csv"
     logger.info(f"Reading Daily data from {path}")
 
     df = pd.read_csv(path)
@@ -103,6 +103,7 @@ def melt_daily_to_long(daily: pd.DataFrame) -> pd.DataFrame:
 
 
 def build_processed_daily_table(
+    raw_data_dir: Path = Path("data/raw"),
     n_per_category: int = 100,
     random_state: int = 42
 ) -> pd.DataFrame:
@@ -113,7 +114,7 @@ def build_processed_daily_table(
     Keeps only series with at least REQUIRED_DAYS of data.
     """
 
-    info = load_m4_info()
+    info = load_m4_info(raw_data_dir)
     info_daily = info[info["SP"] == "Daily"]
 
     sampled_ids = sample_m4_ids_by_category(
@@ -123,7 +124,7 @@ def build_processed_daily_table(
     )
 
     # Load wide format and melt to long
-    daily_wide = load_m4_daily_wide(sampled_ids=sampled_ids)
+    daily_wide = load_m4_daily_wide(raw_data_dir, sampled_ids=sampled_ids)
     long_df = melt_daily_to_long(daily_wide)
 
     # Merge metadata and drop missing values
@@ -143,24 +144,29 @@ def build_processed_daily_table(
 
     return long_df
 
+def save_processed_daily_table(
+    df: pd.DataFrame,
+    processed_data_dir: Path = Path("data/processed"),
+    filename: str = "m4_daily_sampled.parquet"
+) -> Path:
+    """Save the preprocessed daily table to disk."""
+    processed_data_dir.mkdir(parents=True, exist_ok=True)
+    output_path = processed_data_dir / filename
+    df.to_parquet(output_path, index=False)
+    logger.info(
+        f"Saved sampled Daily M4 data to {output_path} "
+        f"({df['M4id'].nunique()} series, {df.shape[0]} rows)"
+    )
+    return output_path
+
 
 def main():
     try:
-        PROCESSED_DATA_DIR.mkdir(parents=True, exist_ok=True)
-
         df = build_processed_daily_table(
             n_per_category=N_SERIES_PER_CATEGORY,
             random_state=RANDOM_STATE
         )
-
-        output_path = PROCESSED_DATA_DIR / "m4_daily_sampled.parquet"
-        df.to_parquet(output_path, index=False)
-
-        logger.info(
-            f"Saved sampled Daily M4 data to {output_path} "
-            f"({df['M4id'].nunique()} series, {df.shape[0]} rows)"
-        )
-
+        save_processed_daily_table(df)
     except Exception:
         logger.exception("Daily M4 ingestion pipeline failed")
         raise
@@ -168,3 +174,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
