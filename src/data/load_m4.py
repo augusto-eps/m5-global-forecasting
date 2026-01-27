@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 import pandas as pd
 
-from preprocessing import drop_na, get_valid_series_ids
+from .preprocessing import drop_na, get_valid_series_ids
 
 RAW_DATA_DIR = Path("data/raw")
 PROCESSED_DATA_DIR = Path("data/processed")
