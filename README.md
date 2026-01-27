@@ -37,3 +37,15 @@ m4-global-forecasting/
 ├── notebooks/          # Exploratory analysis
 ├── requirements.txt
 └── README.md
+
+### Demo notebook
+
+A short walkthrough of the data and baseline model is available here:
+
+- `notebooks/m4_baseline_demo.ipynb`
+
+It demonstrates:
+- Data loading
+- Temporal train/test split
+- Moving-average baseline forecasts
+- Visual comparison of predictions vs actuals
